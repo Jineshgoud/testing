@@ -1,0 +1,469 @@
+/* The Last Boardwalk — dreamcore liminal leisure, real scene imagery.
+   Pivot after the 0/10 verdict on site 1: the scenes are real dreamcore
+   images (Modal-generated, calibrated against actual dreamcore references),
+   CSS/SVG is only UI, decoration and interaction. */
+
+/* Registered colour properties so the time-of-day change cross-fades. */
+@property --zenith { syntax: '<color>'; inherits: true; initial-value: #2B5CE6; }
+@property --horizon { syntax: '<color>'; inherits: true; initial-value: #FFB3D1; }
+@property --sand { syntax: '<color>'; inherits: true; initial-value: #F6D9C4; }
+@property --sand-deep { syntax: '<color>'; inherits: true; initial-value: #E8B48C; }
+@property --light { syntax: '<color>'; inherits: true; initial-value: #FFFFFF; }
+@property --lamp { syntax: '<color>'; inherits: true; initial-value: #4CAF7D; }
+@property --window { syntax: '<color>'; inherits: true; initial-value: #FF9EC7; }
+@property --star-alpha { syntax: '<number>'; inherits: true; initial-value: 0; }
+
+:root {
+  --pink: #FF7EB6;
+  --pink-light: #FF9EC7;
+  --pink-deep: #F75D9E;
+  --cloud: #FFFFFF;
+  --turquoise: #7FE3D4;
+  --fern: #4CAF7D;
+  --glow-green: #7DFFB2;
+  --ink: #2A1B2E;
+  --ink-light: #FFF5FA;
+  --cobalt: #1E4FD8;
+  --cobalt-zenith: #2B5CE6;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Time-of-day palettes (Dawn is the default). */
+body {
+  --zenith: #2B5CE6;
+  --horizon: #FFB3D1;
+  --sand: #F6D9C4;
+  --sand-deep: #E8B48C;
+  --light: #FFFFFF;
+  --lamp: #4CAF7D;
+  --window: #FF9EC7;
+  --star-alpha: 0;
+  transition: --zenith 1.2s ease, --horizon 1.2s ease, --sand 1.2s ease,
+    --sand-deep 1.2s ease, --light 1.2s ease, --lamp 1.2s ease,
+    --window 1.2s ease, --star-alpha 1.2s ease;
+}
+body[data-time="golden"] {
+  --zenith: #2B4FD8;
+  --horizon: #FFC98A;
+  --sand: #F9D9A8;
+  --sand-deep: #E8B48C;
+  --light: #FFE8C9;
+  --lamp: #4CAF7D;
+  --window: #FF9EC7;
+  --star-alpha: 0;
+}
+body[data-time="glow"] {
+  --zenith: #16289B;
+  --horizon: #B34A86;
+  --sand: #E8B48C;
+  --sand-deep: #F6D9C4;
+  --light: #FF9EC7;
+  --lamp: #7DFFB2;
+  --window: #FF7EB6;
+  --star-alpha: 1;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: "Outfit", system-ui, sans-serif;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--cobalt);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Time-of-day control ---------- */
+.tod {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 245, 250, 0.92);
+  box-shadow: 0 4px 0 var(--pink-deep);
+}
+.tod-btn {
+  font: 500 0.78rem/1 "Outfit", system-ui, sans-serif;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 11px;
+  cursor: pointer;
+  transition: transform .15s var(--ease), background-color .2s;
+}
+.tod-btn:hover { transform: scale(1.08); background: var(--pink-light); }
+.tod-btn:active { transform: scale(0.94); }
+.tod-btn.is-active { background: var(--ink); color: var(--ink-light); }
+.tod-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+/* ---------- Sky hint ---------- */
+.sky-hint {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 19;
+  margin: 0;
+  padding: 6px 12px;
+  font: 500 0.75rem/1 "Outfit", system-ui, sans-serif;
+  color: var(--ink);
+  background: rgba(255, 245, 250, 0.9);
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity .6s ease;
+}
+@media (max-width: 480px) {
+  .sky-hint { top: 64px; }
+}
+
+/* ---------- The tiny figure ---------- */
+.figure {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  z-index: 15;
+  pointer-events: none;
+  will-change: transform;
+}
+.figure svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  /* Pale halo so the dark figure stays visible on dark scenes too. */
+  filter: drop-shadow(0 0 2px rgba(255, 245, 250, 0.9)) drop-shadow(0 1px 1px rgba(255, 245, 250, 0.6));
+  animation: figure-bob .55s ease-in-out infinite alternate;
+}
+@keyframes figure-bob {
+  from { transform: translateY(0) rotate(-2deg); }
+  to   { transform: translateY(-3px) rotate(2deg); }
+}
+
+/* ---------- Scenes (shared) ---------- */
+.sky {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(to top, var(--horizon) 0%, var(--zenith) 78%);
+  cursor: crosshair;
+}
+.sky::after {
+  /* Stars: tiny white dots, visible only in Glow-night. */
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  opacity: var(--star-alpha);
+  box-shadow:
+    8vw 6vh #FFFFFF, 18vw 14vh #FFFFFF, 27vw 4vh #FFFFFF, 36vw 19vh #FFFFFF,
+    46vw 8vh #FFFFFF, 58vw 3vh #FFFFFF, 66vw 16vh #FFFFFF, 77vw 6vh #FFFFFF,
+    88vw 20vh #FFFFFF, 94vw 10vh #FFFFFF, 13vw 24vh #FFFFFF, 52vw 26vh #FFFFFF;
+  pointer-events: none;
+  z-index: 1;
+}
+.sky > * { position: relative; z-index: 1; }
+.sky > .scene-bg, .sky > .sky-clouds { position: absolute; }
+.sky > .scene-bg { z-index: 0; }
+
+/* The scene image: full-bleed, 15% overscan top/bottom so the parallax
+   (max ±10% of viewport height) never reveals an edge. Time-of-day
+   re-lights it with a filter. */
+.scene-bg {
+  left: 0;
+  right: 0;
+  top: -15%;
+  bottom: -15%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: filter 1.2s ease;
+}
+body[data-time="golden"] .scene-bg {
+  filter: sepia(.45) saturate(1.45) hue-rotate(-15deg) brightness(1.06);
+}
+body[data-time="glow"] .scene-bg {
+  filter: brightness(.7) saturate(1.4) hue-rotate(15deg);
+}
+/* On narrow screens the night-street crop would lose the swing set;
+   shift the framing left so the swings stay in frame. */
+@media (max-width: 640px) {
+  .bg-swings { background-position: 28% center; }
+}
+
+.sky-clouds {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.sky-cloud {
+  position: absolute;
+  width: clamp(110px, 16vw, 200px);
+  aspect-ratio: 220 / 100;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: sky-cloud-drift 20s linear forwards;
+}
+.sky-cloud svg { display: block; width: 100%; height: 100%; }
+@keyframes sky-cloud-drift {
+  0%   { opacity: 0; transform: translate(-50%, -50%) translateX(0) scale(.6); }
+  8%   { opacity: 1; transform: translate(-50%, -50%) translateX(0) scale(1); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translateX(90px) scale(1.04); }
+}
+
+/* Parallax layers: transforms are written by script.js. */
+.layer {
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ---------- 1. The Boardwalk (hero) ---------- */
+.scene-hero {
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100vh;
+  height: 100svh;
+}
+
+.hero-copy {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 13svh;
+  padding: 0 20px;
+  text-align: center;
+  z-index: 3;
+  pointer-events: none;
+}
+/* Soft cobalt scrim so the white title stays crisp where it crosses
+   the bright cloud in the hero image. */
+.hero-copy::before {
+  content: "";
+  position: absolute;
+  inset: -48px -40px -32px;
+  background: radial-gradient(ellipse at center, rgba(30, 79, 216, 0.34), rgba(30, 79, 216, 0) 68%);
+  z-index: -1;
+  pointer-events: none;
+}
+.title {
+  margin: 0;
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(2rem, 8vw, 6rem);
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+  color: var(--ink-light);
+  text-shadow: 0 3px 0 var(--pink-deep), 0 6px 28px rgba(30, 79, 216, 0.55);
+}
+.subtitle {
+  margin: 14px 0 0;
+  font-weight: 500;
+  font-size: clamp(0.95rem, 2.2vw, 1.25rem);
+  color: var(--ink-light);
+  text-shadow: 0 2px 12px rgba(30, 79, 216, 0.6);
+}
+.scroll-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  margin: 0;
+  text-align: center;
+  font-weight: 500;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-light);
+  text-shadow: 0 1px 8px rgba(42, 27, 46, 0.5);
+  z-index: 3;
+  pointer-events: none;
+}
+.scroll-hint::after {
+  content: "↓";
+  display: block;
+  margin-top: 4px;
+  animation: figure-bob .6s ease-in-out infinite alternate;
+}
+
+/* ---------- Chapters ---------- */
+.chapter,
+.finale {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 64px 20px;
+  text-align: center;
+}
+.chapter-no {
+  margin: 0;
+  font-weight: 500;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  text-shadow: 0 1px 0 var(--pink-deep), 0 2px 14px rgba(30, 79, 216, 0.75), 0 0 18px rgba(30, 79, 216, 0.35);
+}
+
+.chapter-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 34ch;
+  padding: 16px 20px 18px;
+  border-radius: 18px;
+  background: rgba(255, 245, 250, 0.88);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--ink);
+  box-shadow: 0 5px 0 var(--pink-deep), 0 12px 32px rgba(42, 27, 46, 0.25);
+}
+.chapter-title {
+  margin: 0 0 8px;
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.25rem, 3.4vw, 2rem);
+  line-height: 1.1;
+  color: var(--ink);
+}
+.chapter-copy p {
+  margin: 0;
+  font-size: clamp(1rem, 2.2vw, 1.15rem);
+  line-height: 1.45;
+}
+
+/* ---------- The Dream Machine (finale) ---------- */
+.finale { gap: 22px; }
+.finale .chapter-title {
+  color: var(--ink-light);
+  text-shadow: 0 3px 0 var(--pink-deep);
+  margin: 0;
+}
+.crt {
+  position: relative;
+  z-index: 2;
+  width: min(84vw, 400px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.crt-shell {
+  width: 100%;
+  padding: 22px 22px 26px;
+  border-radius: 28px 28px 22px 22px;
+  background: var(--pink);
+  box-shadow: inset 0 -6px 0 var(--pink-deep), 0 8px 0 var(--pink-deep);
+}
+.crt-screen {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--cobalt);
+  border: 4px solid var(--pink-light);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.crt-screen.is-static { animation: crt-static 150ms steps(6) 1; }
+@keyframes crt-static {
+  0%   { opacity: 1; }
+  15%  { opacity: 0.35; filter: brightness(1.6); }
+  30%  { opacity: 0.9; }
+  45%  { opacity: 0.25; filter: brightness(1.4); }
+  60%  { opacity: 0.8; }
+  75%  { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+.dream-text {
+  margin: 0;
+  width: 100%;
+  font-weight: 500;
+  font-size: clamp(0.95rem, 2.6vw, 1.2rem);
+  line-height: 1.4;
+  color: var(--ink-light);
+  text-align: left;
+  min-height: 4.2em;
+}
+.dream-text::after {
+  content: "_";
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { to { visibility: hidden; } }
+.crt-stand {
+  width: 46%;
+  height: 16px;
+  margin-top: -2px;
+  border-radius: 0 0 14px 14px;
+  background: var(--pink-deep);
+}
+.crt-legs {
+  width: 62%;
+  height: 26px;
+  margin-top: -2px;
+  background:
+    linear-gradient(var(--pink-deep), var(--pink-deep)) 0 0 / 12px 100% no-repeat,
+    linear-gradient(var(--pink-deep), var(--pink-deep)) 100% 0 / 12px 100% no-repeat;
+}
+
+.dream-btn {
+  position: relative;
+  z-index: 2;
+  margin-top: 8px;
+  padding: 16px 30px;
+  font: 800 0.95rem/1 "Unbounded", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--pink-light);
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 7px 0 var(--pink-deep), 0 10px 18px rgba(42, 27, 46, 0.25);
+  cursor: pointer;
+  transition: transform .12s var(--ease), box-shadow .12s var(--ease);
+}
+.dream-btn:hover { transform: translateY(-2px) rotate(-1deg) scale(1.04); }
+.dream-btn:active { transform: translateY(6px); box-shadow: 0 1px 0 var(--pink-deep); }
+.dream-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+/* ---------- Footer ---------- */
+.site-footer {
+  position: relative;
+  padding: 40px 20px 56px;
+  text-align: center;
+  background: var(--sand);
+  color: var(--ink);
+}
+.site-footer p { margin: 0; font-weight: 500; font-size: 0.95rem; }
+
+/* ---------- Motion preference ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .figure svg, .scroll-hint::after, .dream-text::after { animation: none; }
+  .crt-screen.is-static { animation: none; }
+  .sky-cloud { animation: sky-cloud-fade 20s linear forwards; }
+  .layer { transform: none !important; }
+  body { transition: none; }
+  .scene-bg { transition: none; }
+  .tod-btn, .dream-btn { transition: none; }
+}
+@keyframes sky-cloud-fade {
+  0%, 8% { opacity: 0; }
+  12% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
