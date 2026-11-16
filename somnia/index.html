@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-time="day">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOMNIA — a boardwalk that never ends</title>
+<meta name="description" content="A pastel dreamcore world in code. Walk the endless boardwalk, swim the pink pool, and stay as long as you like.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,900&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Time-of-day control -->
+<nav class="time-toggle" aria-label="Time of day">
+  <button data-set-time="day" class="active" aria-pressed="true">Dawn</button>
+  <button data-set-time="dusk" aria-pressed="false">Golden</button>
+  <button data-set-time="night" aria-pressed="false">Night</button>
+</nav>
+
+<!-- ============ 1. THE SKY ============ -->
+<header class="sky" id="sky">
+  <div class="sun" aria-hidden="true"></div>
+  <div class="cloud c1" aria-hidden="true"></div>
+  <div class="cloud c2" aria-hidden="true"></div>
+  <div class="cloud c3" aria-hidden="true"></div>
+  <div class="cloud c4" aria-hidden="true"></div>
+  <div class="cloud c5" aria-hidden="true"></div>
+
+  <div class="sky-copy">
+    <p class="eyebrow">a place that never existed</p>
+    <h1>SOMNIA</h1>
+    <p class="tagline">a boardwalk that never ends.<br>you can stay as long as you like.</p>
+  </div>
+
+  <div class="palms" aria-hidden="true">
+    <svg class="palm left" viewBox="0 0 100 160"><path d="M50 160 C48 120 48 80 50 40 M50 40 C30 20 12 22 6 34 C20 34 34 40 50 40 M50 40 C70 20 88 22 94 34 C80 34 66 40 50 40 M50 40 C44 12 30 4 18 8 C32 14 44 26 50 40 M50 40 C56 12 70 4 82 8 C68 14 56 26 50 40" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+    <svg class="palm right" viewBox="0 0 100 160"><path d="M50 160 C48 120 48 80 50 40 M50 40 C30 20 12 22 6 34 C20 34 34 40 50 40 M50 40 C70 20 88 22 94 34 C80 34 66 40 50 40 M50 40 C44 12 30 4 18 8 C32 14 44 26 50 40 M50 40 C56 12 70 4 82 8 C68 14 56 26 50 40" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+  </div>
+
+  <div class="boardwalk" aria-hidden="true">
+    <div class="walker" id="walker">
+      <svg viewBox="0 0 24 48"><circle cx="12" cy="7" r="5"/><path d="M12 13 L12 28 M12 16 L4 24 M12 16 L20 24 M12 28 L6 46 M12 28 L18 46" stroke-width="3.4" stroke-linecap="round" fill="none"/></svg>
+    </div>
+  </div>
+
+  <a class="scroll-cue" href="#walk">begin the walk ↓</a>
+  <p class="hint">psst — click the sky to make a cloud</p>
+</header>
+
+<!-- ============ 2. THE WALK ============ -->
+<section class="walk" id="walk">
+  <div class="walk-sticky">
+    <div class="walk-copy">
+      <p class="eyebrow">station one</p>
+      <h2>The pool is always<br>warm.</h2>
+      <p>Nobody remembers filling it. The water is pink at noon and<br class="wide-only">
+      gold at dusk, and the loungers are always empty —<br class="wide-only">
+      except one, which is always warm.</p>
+    </div>
+    <div class="pool" id="pool" role="button" tabindex="0" aria-label="The pool — click to make ripples">
+      <div class="lounger l1" aria-hidden="true"></div>
+      <div class="lounger l2" aria-hidden="true"></div>
+      <span class="pool-label">click the water</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. THE SLIDE ============ -->
+<section class="slide">
+  <div class="slide-copy">
+    <p class="eyebrow">station two</p>
+    <h2>The slide is bigger<br>than the house.</h2>
+    <p>It was here before the house. It will be here after.<br>
+    Nobody has ever seen anyone come down it.<br>
+    The splash at the bottom happens anyway, every afternoon at four.</p>
+  </div>
+  <div class="slide-art" aria-hidden="true">
+    <div class="house">
+      <div class="house-roof"></div>
+      <div class="house-window w1"></div>
+      <div class="house-window w2"></div>
+      <div class="house-door"></div>
+    </div>
+    <div class="waterslide"></div>
+    <div class="splash"></div>
+  </div>
+</section>
+
+<!-- ============ 4. THE CRT GARDEN ============ -->
+<section class="garden">
+  <div class="garden-copy">
+    <p class="eyebrow">station three</p>
+    <h2>The computers<br>grew ferns.</h2>
+    <p>They still hum when it rains. The screens show<br>
+    a desktop from a summer that may never have existed.<br>
+    The ferns do not mind. The ferns were here first.</p>
+  </div>
+  <div class="crt-row" aria-hidden="true">
+    <div class="crt"><div class="crt-screen"><span>☁</span></div><div class="fern">❧</div></div>
+    <div class="crt tall"><div class="crt-screen"><span>☀</span></div><div class="fern">❧</div></div>
+    <div class="crt"><div class="crt-screen"><span>≈</span></div><div class="fern">❧</div></div>
+  </div>
+</section>
+
+<!-- ============ 5. THE DREAM MACHINE ============ -->
+<section class="machine">
+  <p class="eyebrow">the dream machine</p>
+  <h2>Take a dream<br>with you.</h2>
+  <blockquote id="dream-line">Press the button. The machine is old, but it has never repeated itself. Not once.</blockquote>
+  <button id="dream-btn" type="button">↻ &nbsp;dream me something</button>
+  <p class="machine-note">dream no. <span id="dream-count">000</span> — dispensed free, forever</p>
+</section>
+
+<!-- ============ 6. NIGHT ============ -->
+<section class="night" id="night">
+  <div class="night-windows" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <div class="night-copy">
+    <p class="eyebrow">after dark</p>
+    <h2>The windows glow<br>pink and green.</h2>
+    <p>Every window is lit. Every room is empty.<br>
+    The swing set moves a little, when nobody is watching.<br>
+    You are still dreaming. That's alright.</p>
+  </div>
+  <div class="fireflies" id="fireflies" aria-hidden="true"></div>
+</section>
+
+<footer>
+  <p class="foot-title">SOMNIA</p>
+  <p>built entirely in code — no images, no photographs.<br>
+  a boardwalk that never ends · you can stay as long as you like.</p>
+  <a href="#sky">↑ back to the sky</a>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
