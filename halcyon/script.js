@@ -9,6 +9,17 @@
   'use strict';
 
   const $  = (s, c = document) => c.querySelector(s);
+  /* one request for the boardwalk: every other use copies the decoded src */
+  (function reuseBoardwalk() {
+    const hero = document.getElementById('heroImg');
+    if (!hero) return;
+    document.querySelectorAll('[data-reuse="heroImg"]').forEach(img => {
+      if (!img.getAttribute('src')) img.src = hero.currentSrc || hero.src;
+    });
+    document.querySelectorAll('[data-parallax-src="heroImg"]').forEach(el => {
+      el.style.backgroundImage = 'url(' + (hero.currentSrc || hero.src) + ')';
+    });
+  })();
   const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isTouch = window.matchMedia('(pointer: coarse)').matches;
@@ -52,7 +63,7 @@
     toastTxt.textContent = text;
     toastEl.classList.add('is-on');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), ms);
+    toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), window.innerWidth < 760 ? Math.min(ms, 2600) : ms);
   }
 
   /* ============================================================
@@ -124,6 +135,7 @@
   }
   function closeCheckin() {
     overlay.classList.remove('is-open');
+    card.classList.remove('is-done');
     document.body.classList.remove('is-locked');
     setTimeout(() => { overlay.hidden = true; }, 460);
     if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
@@ -335,6 +347,13 @@
       if (!has) li.classList.remove('is-open');
     });
   }
+  /* accessible name must match the visible label */
+  shelfItems.forEach(li => {
+    const btn = $('.shelf__btn', li);
+    const nm = $('.shelf__name', li);
+    if (nm) btn.setAttribute('aria-label', nm.textContent.trim());
+  });
+
   shelfItems.forEach(li => {
     $('.shelf__btn', li).addEventListener('click', () => {
       const open = li.classList.contains('is-open');
@@ -371,6 +390,17 @@
   const soundBtn = $('#soundBtn');
   let audioCtx = null, master = null, soundOn = false;
 
+  /* per-room tone: the room you are standing in decides what you hear */
+  const ROOM_TONES = {
+    pool:  { low: 58, hi: 87.4, noise: 900,  q: .6, nGain: .12, chimes: [523.25, 659.25, 783.99], every: 9000 },
+    slide: { low: 74, hi: 111,  noise: 1400, q: .9, nGain: .09, chimes: [659.25, 880, 987.77], every: 7500 },
+    fern:  { low: 49, hi: 98,   noise: 2600, q: 2.2, nGain: .07, chimes: [392, 466.16, 587.33], every: 12000 },
+    night: { low: 41.2, hi: 61.7, noise: 700, q: .5, nGain: .10, chimes: [261.63, 329.63, 415.3], every: 13000 },
+    pier:  { low: 65.4, hi: 98,   noise: 1800, q: .4, nGain: .16, chimes: [587.33, 698.46, 880], every: 8000 },
+    hero:  { low: 58, hi: 87.4,   noise: 900,  q: .6, nGain: .12, chimes: [523.25, 659.25, 783.99], every: 9000 }
+  };
+  let toneNodes = null, toneRoom = 'hero', chimeTimer = 0;
+
   function buildTone() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     master = audioCtx.createGain();
@@ -379,8 +409,7 @@
 
     /* deep hum: two detuned sines */
     const o1 = audioCtx.createOscillator(), o2 = audioCtx.createOscillator();
-    o1.type = 'sine'; o1.frequency.value = 58;
-    o2.type = 'sine'; o2.frequency.value = 87.4;
+    o1.type = 'sine'; o2.type = 'sine';
     const og = audioCtx.createGain(); og.gain.value = .16;
     const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300;
     o1.connect(og); o2.connect(og); og.connect(lp); lp.connect(master);
@@ -400,22 +429,46 @@
     const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = .6;
     const ng = audioCtx.createGain(); ng.gain.value = .12;
     src.connect(bp); bp.connect(ng); ng.connect(master); src.start();
+    toneNodes = { o1, o2, bp, ng, lp };
 
     /* occasional distant chime (very quiet) */
     const chime = () => {
       if (!soundOn) return;
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.type = 'triangle';
-      o.frequency.value = [523.25, 659.25, 783.99, 392][Math.floor(Math.random() * 4)];
+      const chord = (ROOM_TONES[toneRoom] || ROOM_TONES.hero).chimes;
+      o.frequency.value = chord[Math.floor(Math.random() * chord.length)];
       g.gain.value = 0;
       o.connect(g); g.connect(master);
       const t = audioCtx.currentTime;
       g.gain.linearRampToValueAtTime(.028, t + .8);
       g.gain.exponentialRampToValueAtTime(.0001, t + 5);
       o.start(t); o.stop(t + 5.2);
-      setTimeout(chime, 7000 + Math.random() * 9000);
+      const every = (ROOM_TONES[toneRoom] || ROOM_TONES.hero).every;
+      chimeTimer = setTimeout(chime, every * .7 + Math.random() * every * .6);
     };
-    setTimeout(chime, 3000);
+    chimeTimer = setTimeout(chime, 3000);
+
+    /* set the starting room profile */
+    applyTone('hero');
+  }
+
+  /* glide the tone to the room the guest is standing in */
+  function applyTone(room) {
+    if (!toneNodes || !audioCtx) return;
+    toneRoom = room;
+    const p = ROOM_TONES[room] || ROOM_TONES.hero;
+    const t = audioCtx.currentTime;
+    toneNodes.o1.frequency.cancelScheduledValues(t);
+    toneNodes.o1.frequency.linearRampToValueAtTime(p.low, t + 1.6);
+    toneNodes.o2.frequency.cancelScheduledValues(t);
+    toneNodes.o2.frequency.linearRampToValueAtTime(p.hi, t + 1.6);
+    toneNodes.bp.frequency.cancelScheduledValues(t);
+    toneNodes.bp.frequency.linearRampToValueAtTime(p.noise, t + 1.6);
+    toneNodes.bp.Q.cancelScheduledValues(t);
+    toneNodes.bp.Q.linearRampToValueAtTime(p.q, t + 1.6);
+    toneNodes.ng.gain.cancelScheduledValues(t);
+    toneNodes.ng.gain.linearRampToValueAtTime(p.nGain, t + 1.6);
   }
 
   function toggleSound() {
@@ -430,6 +483,18 @@
     if (soundOn) toast('the hum of a pool filter, two rooms away.');
   }
   soundBtn.addEventListener('click', toggleSound);
+
+  /* which room am I standing in? -> which room do I hear? */
+  if ('IntersectionObserver' in window) {
+    const roomSeen = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const key = e.target.dataset.scene || 'hero';
+        if (key !== toneRoom) applyTone(key);
+      });
+    }, { threshold: .55 });
+    document.querySelectorAll('.scene, .hero').forEach(el => roomSeen.observe(el));
+  }
   if (store.sound) {
     /* returning guest: arm the tone on the first gesture (autoplay policy) */
     const arm = () => {
@@ -666,8 +731,23 @@
   const epilogue = $('#wakeEpilogue');
   const panel = $('#wakePanel');
 
+  const STORY = {
+    all: 'You built this motel. Then you left it running without you.',
+    body: 'You came back for a question, and the question was never the pool, the pier, or the person who did not arrive. It was whether you were allowed to leave a place you made.',
+    clerkDone: 'Room 9 is made up. The pool light stays on. Take the key — it was always yours.'
+  };
+
   function syncWake(celebrate) {
     const n = taken.size;
+    const guest = store.name || 'stranger';
+    const clerkLine = $('#clerkLine');
+    if (clerkLine) {
+      clerkLine.textContent = n === 0
+        ? 'The drawer is still full. Five things went missing the last time you stayed.'
+        : n < 5
+          ? 'You are remembering. ' + (5 - n) + ' thing' + (5 - n === 1 ? ' is' : 's are') + ' still in a room.'
+          : STORY.clerkDone;
+    }
     if (n < 5) {
       wakeBtn.disabled = true;
       wakeStatus.textContent = n + ' of 5 found. The halls are still warm.';
@@ -680,6 +760,11 @@
       wakeBtn.disabled = false;
       wakeStatus.textContent = '5 of 5. Everything you dropped is in your pocket.';
       wakeHint.textContent = 'You may leave now. Leaving is the hard part.';
+      const big = $('#wakeBig'), small = $('#wakeSmall'), nm = $('#wakeName');
+      if (big) big.textContent = STORY.all;
+      if (small && nm) {
+        small.innerHTML = STORY.body + ' <b id="wakeName">' + guest + '</b>, you are. The clerk keeps the key. The pool stays open. Come back when you forget — only now the light will be morning.';
+      }
       if (store.checkedOut) {
         epilogue.hidden = false;
         $('#stampNights').textContent = Math.max(1, store.nights);
@@ -697,12 +782,19 @@
     panel.hidden = true;
     epilogue.hidden = false;
     toast('checkout complete. the key stays in your pocket anyway.');
+    /* THE AWE MOMENT — dawn breaks over the motel */
+    document.documentElement.classList.add('is-dawn');
+    blip(880, .5);
     if (hasGSAP && !reduce) {
       gsap.fromTo(epilogue, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 1, ease: 'power3.out' });
-      gsap.fromTo('.wake__img', { filter: 'brightness(.5) saturate(.9)' }, { filter: 'brightness(.92) saturate(1.1)', duration: 2.4, ease: 'power2.out' });
-      if (!isTouch) document.documentElement.classList.add('is-day');
+      gsap.fromTo('.wake__img', { filter: 'brightness(.5) saturate(.9)' }, { filter: 'brightness(.92) saturate(1.15)', duration: 4, ease: 'power2.out' });
+      gsap.to('.wake__title, .wake__epilogue', { color: '#fff8f0', duration: 3.2, ease: 'power1.out' });
+      gsap.to('.wake__scrim', { opacity: .55, duration: 4, ease: 'power1.out' });
+    } else {
+      epilogue.hidden = false;
+      epilogue.style.opacity = 1;
     }
-    blip(880, .5);
+    applyTone('pier');
   });
 
   $('#againBtn').addEventListener('click', () => {
@@ -747,4 +839,221 @@
     state: () => store,
     hotspots: hotspotEls.length
   };
+})();
+
+/* ============================================================
+   HALCYON polish round: three.js stars, 3D tilt, depth parallax,
+   smear entrances, scroll-velocity type skew
+   ============================================================ */
+(() => {
+  'use strict';
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  if (reduce) return;              /* reduced motion: no 3D, no tilt, no parallax */
+
+  /* ---------- 1. three.js starfield (hero + night room) ---------- */
+  const canvas = document.getElementById('starsCanvas');
+  let renderer, scene, camera, points, mat, raf = 0, running = false;
+  let pointerX = 0, pointerY = 0, tX = 0, tY = 0;
+
+  function initStars() {
+    if (!canvas || !window.THREE) return;
+    const w = canvas.clientWidth || window.innerWidth;
+    const h = canvas.clientHeight || window.innerHeight;
+    renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: 'low-power' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.setSize(w, h, false);
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(62, w / h, .1, 120);
+    camera.position.z = 18;
+
+    const COUNT = window.innerWidth < 760 ? 420 : 850;
+    const pos = new Float32Array(COUNT * 3);
+    const col = new Float32Array(COUNT * 3);
+    const palette = [[1, .82, .9], [.72, .9, 1], [1, .94, .8], [.9, .8, 1]];
+    for (let i = 0; i < COUNT; i++) {
+      pos[i * 3]     = (Math.random() - .5) * 46;
+      pos[i * 3 + 1] = (Math.random() - .5) * 24;
+      pos[i * 3 + 2] = -Math.random() * 34;
+      const c = palette[Math.floor(Math.random() * palette.length)];
+      col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    mat = new THREE.PointsMaterial({
+      size: .16, sizeAttenuation: true, vertexColors: true,
+      transparent: true, opacity: .9, depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    points = new THREE.Points(geo, mat);
+    scene.add(points);
+    canvas.style.opacity = '0';
+    canvas.style.transition = 'opacity 1.4s ease-out';
+
+    window.addEventListener('resize', onResize, { passive: true });
+    if (!coarse) {
+      window.addEventListener('mousemove', e => {
+        tX = (e.clientX / window.innerWidth - .5) * 2;
+        tY = (e.clientY / window.innerHeight - .5) * 2;
+      }, { passive: true });
+    }
+    setRunning(true);
+    canvas.dataset.ready = '1';
+  }
+
+  function onResize() {
+    if (!renderer) return;
+    const w = canvas.clientWidth || window.innerWidth;
+    const h = canvas.clientHeight || window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+
+  function frame() {
+    if (!running) return;
+    pointerX += (tX - pointerX) * .045;
+    pointerY += (tY - pointerY) * .045;
+    camera.position.x = pointerX * 1.9;
+    camera.position.y = -pointerY * 1.1;
+    camera.lookAt(0, 0, -6);
+    points.rotation.z += .00018;
+    points.rotation.y += .00012;
+    const drift = (Date.now() * .00004) % 34;
+    points.position.z = (drift - 17) * .18;
+    renderer.render(scene, camera);
+    raf = requestAnimationFrame(frame);
+  }
+
+  function setRunning(on) {
+    if (!points) return;
+    if (on && !running) { running = true; canvas.style.opacity = '0.85'; raf = requestAnimationFrame(frame); }
+    if (!on && running) { running = false; cancelAnimationFrame(raf); }
+  }
+
+  /* load three lazily, only where it is used, never blocking */
+  function bootStars() {
+    if (!canvas) return;
+    const tag = document.createElement('script');
+    tag.src = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js';
+    tag.async = true;
+    tag.onload = initStars;
+    document.head.appendChild(tag);
+  }
+  if ('IntersectionObserver' in window) {
+    const heroSeen = new IntersectionObserver(es => {
+      es.forEach(e => {
+        if (e.isIntersecting && !canvas.dataset.ready) { bootStars(); heroSeen.disconnect(); }
+      });
+    }, { threshold: .05 });
+    heroSeen.observe(canvas);
+    /* pause when the hero is off-screen: no wasted frames */
+    const pauseIO = new IntersectionObserver(es => {
+      es.forEach(e => setRunning(e.isIntersecting));
+    }, { threshold: 0 });
+    pauseIO.observe(canvas);
+  } else {
+    bootStars();
+  }
+
+  /* ---------- 2. 3D tilt on room cards ---------- */
+  if (!coarse) {
+    document.querySelectorAll('.frame').forEach(frame => {
+      if (!frame.querySelector('.frame__shine')) {
+        const sh = document.createElement('div');
+        sh.className = 'frame__shine';
+        sh.setAttribute('aria-hidden', 'true');
+        frame.appendChild(sh);
+      }
+      let rafId = 0, pending = null;
+      frame.addEventListener('pointermove', e => {
+        pending = e;
+        if (rafId) return;
+        rafId = requestAnimationFrame(() => {
+          rafId = 0;
+          const r = frame.getBoundingClientRect();
+          const px = (pending.clientX - r.left) / r.width;
+          const py = (pending.clientY - r.top) / r.height;
+          const ry = (px - .5) * 11;   /* max ~5.5deg each way */
+          const rx = -(py - .5) * 11;
+          frame.classList.add('is-tilting');
+          frame.style.transform = `perspective(900px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateZ(0)`;
+          frame.style.boxShadow = `${(-ry * 2.2).toFixed(1)}px ${(8 + rx * 2).toFixed(1)}px 60px -28px rgba(0,0,0,.75)`;
+          frame.style.setProperty('--sx', (px * 100).toFixed(0) + '%');
+          frame.style.setProperty('--sy', (py * 100).toFixed(0) + '%');
+        });
+      }, { passive: true });
+      frame.addEventListener('pointerleave', () => {
+        frame.classList.remove('is-tilting');
+        frame.style.transform = '';
+        frame.style.boxShadow = '';
+      });
+    });
+  }
+
+  /* ---------- 3. hero depth parallax (3 layers) ---------- */
+  const deps = [
+    { el: document.querySelector('.dep--sky'), speed: .16 },
+    { el: document.querySelector('.dep--motel'), speed: .44 },
+    { el: document.querySelector('.dep--dune'), speed: .72 }
+  ].filter(d => d.el);
+  const hero = document.querySelector('.hero');
+  if (deps.length && hero) {
+    let ticking = false;
+    const move = () => {
+      ticking = false;
+      const y = window.scrollY || 0;
+      if (y > window.innerHeight * 1.2) return;
+      deps.forEach(d => { d.el.style.transform = `translate3d(0,${(-y * d.speed).toFixed(1)}px,0)`; });
+    };
+    window.addEventListener('scroll', () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(move); }
+    }, { passive: true });
+    move();
+  }
+
+  /* ---------- 4. smear entrances ---------- */
+  if ('IntersectionObserver' in window) {
+    const smearIO = new IntersectionObserver(es => {
+      es.forEach(e => {
+        if (!e.isIntersecting) return;
+        e.target.classList.add('smear-in');
+        smearIO.unobserve(e.target);
+      });
+    }, { threshold: .15 });
+    document.querySelectorAll('.scene__copy, .frame').forEach(el => smearIO.observe(el));
+  }
+
+  /* ---------- 5. feedback: squash, pop, tick ---------- */
+  document.addEventListener('pointerdown', e => {
+    const b = e.target.closest('.btn, .shelf__btn, .sign__toggle, .sound, .hotspot');
+    if (!b) return;
+    b.classList.remove('is-squash');
+    void b.offsetWidth;
+    b.classList.add('is-squash');
+    setTimeout(() => b.classList.remove('is-squash'), 260);
+  }, true);
+
+  /* ---------- 6. scroll-velocity reactions (title skew + grain) ---------- */
+  const title = document.querySelector('.hero__title');
+  const film = document.querySelector('.film');
+  let lastY = window.scrollY, vel = 0, vRaf = 0;
+  function velLoop() {
+    const y = window.scrollY;
+    vel += ((y - lastY) - vel) * .2;
+    lastY = y;
+    const skew = Math.max(-4.5, Math.min(4.5, vel * .18));
+    if (title) title.style.transform = `skewY(${skew.toFixed(2)}deg)`;
+    if (film) film.style.opacity = String(Math.min(.42, .18 + Math.abs(vel) * .012));
+    vRaf = requestAnimationFrame(velLoop);
+  }
+  vRaf = requestAnimationFrame(velLoop);
+  /* stop the loop when the tab is hidden */
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelAnimationFrame(vRaf);
+    else vRaf = requestAnimationFrame(velLoop);
+  });
+
+  window.__halcyon = { ...window.__halcyon, stars: () => !!points };
 })();
